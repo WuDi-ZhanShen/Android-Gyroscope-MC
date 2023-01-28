@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.tile.tuoluoyi">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+
+    <application
+        android:icon="@drawable/icon"
+        android:label="陀螺仪视角控制"
+        android:theme="@android:style/Theme.DeviceDefault.Dialog">
+        <activity
+            android:name=".MainActivity"
+            android:autoRemoveFromRecents="true"
+            android:excludeFromRecents="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity>
+        <service
+            android:name=".tuoluoyiService"
+            android:exported="true" />
+
+        <activity
+            android:name=".serviceStart"
+            android:excludeFromRecents="true"
+            android:exported="true" />
+        <activity
+            android:name=".serviceStop"
+            android:excludeFromRecents="true"
+            android:exported="true" />
+
+        <service
+            android:name=".tileService"
+            android:exported="true"
+            android:icon="@drawable/tile"
+            android:label="陀螺仪"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+    </application>
+
+</manifest>
