@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="20dp">
+
+    <LinearLayout
+        android:id="@+id/l"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+
+        <Button
+            android:id="@+id/b"
+            style="@android:style/Widget.Material.Button.Borderless.Colored"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:onClick="ch"
+            android:textAllCaps="false" />
+
+        <Switch
+            android:id="@+id/s1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="服务运行状态：" />
+
+        <Switch
+            android:id="@+id/s2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="开启前台运行通知" />
+
+        <Switch
+            android:id="@+id/s3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="x轴反转" />
+
+        <Switch
+            android:id="@+id/s4"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="y轴反转" />
+
+
+
+        <TableLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:stretchColumns="1">
+
+
+
+            <TableRow>
+
+                <TextView
+                    android:gravity="center"
+                    android:text="X轴灵敏度" />
+
+                <EditText
+                    android:id="@+id/e1"
+                    android:background="@null"
+                    android:gravity="center"
+                    android:hint="100"
+                    android:inputType="number"
+                    android:selectAllOnFocus="true" />
+            </TableRow>
+
+            <SeekBar
+                android:id="@+id/sb1"
+                android:layout_marginBottom="20dp"
+                android:max="400" />
+
+            <TableRow>
+
+                <TextView
+                    android:gravity="center"
+                    android:text="Y轴灵敏度" />
+
+                <EditText
+                    android:id="@+id/e2"
+                    android:background="@null"
+                    android:gravity="center"
+                    android:hint="100"
+                    android:inputType="number"
+                    android:selectAllOnFocus="true" />
+            </TableRow>
+
+            <SeekBar
+                android:id="@+id/sb2"
+                android:layout_marginBottom="20dp"
+                android:max="400" />
+        </TableLayout>
+
+
+
+        <Switch
+            android:id="@+id/s5"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="横屏时显示悬浮球" />
+        <LinearLayout
+            android:id="@+id/ll"
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+
+
+            <Switch
+                android:id="@+id/s6"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="锁定悬浮球位置" />
+
+
+            <TableLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:stretchColumns="1">
+
+                <TableRow>
+
+                    <TextView
+                        android:gravity="center"
+                        android:text="悬浮球透明度" />
+
+                    <EditText
+                        android:id="@+id/e"
+                        android:background="@null"
+                        android:gravity="center"
+                        android:hint="90"
+                        android:inputType="number"
+                        android:selectAllOnFocus="true" />
+                </TableRow>
+
+                <SeekBar
+                    android:id="@+id/sb"
+                    android:layout_marginBottom="20dp"
+                    android:max="100" />
+
+                <TableRow>
+
+                    <TextView
+                        android:gravity="center"
+                        android:text="悬浮球大小" />
+
+                    <EditText
+                        android:id="@+id/e3"
+                        android:background="@null"
+                        android:gravity="center"
+                        android:hint="50"
+                        android:inputType="number"
+                        android:selectAllOnFocus="true" />
+                </TableRow>
+
+                <SeekBar
+                    android:id="@+id/sb3"
+                    android:layout_marginBottom="20dp"
+                    android:max="100" />
+
+            </TableLayout>
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>
