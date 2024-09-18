@@ -10,13 +10,11 @@ android {
         applicationId "com.tile.tuoluoyi"
         minSdk 24
         targetSdk 33
-        versionCode 15
-        versionName "15"
+        versionCode 16
+        versionName "16"
         multiDexEnabled false
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
-
-
 
     buildTypes {
         release {

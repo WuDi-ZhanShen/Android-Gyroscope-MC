@@ -15,7 +15,7 @@
     <string name="size_floatwindow">floating ball size</string>
     <string name="service_actived">Click here for help</string>
     <string name="deactive_service">Change Injection Mode</string>
-    <string name="deactive_service_text">Mode 1 has better performance, but some Android devices have no UInput support, thus these devices may choose mode 2.</string>
+    <string name="deactive_service_text">Mode 1 has better performance, but some Android devices have no UInput support, thus these devices may choose mode 2 or 3.</string>
     <string name="back">back</string>
     <string name="deactive">deactivate</string>
     <string name="deactive_success">Service deactivated.</string>

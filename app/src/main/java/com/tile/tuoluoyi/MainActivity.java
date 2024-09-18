@@ -57,7 +57,7 @@ public class MainActivity extends Activity {
     private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            BinderContainer binderContainer = (BinderContainer) intent.getParcelableExtra("binder");
+            BinderContainer binderContainer = intent.getParcelableExtra("binder");
             IBinder binder = binderContainer.getBinder();
             //如果binder已经失去活性了，则不再继续解析
             if (!binder.pingBinder()) return;
@@ -76,10 +76,10 @@ public class MainActivity extends Activity {
     private void showExit(IBinder binder) {
         IGamePad gamePad = IGamePad.Stub.asInterface(binder);
         SharedPreferences sp = getSharedPreferences("data", 0);
-        boolean isMode1 = false;
+        int currentMode = 0;
         try {
-            gamePad.changeMode(sp.getBoolean("isMode1", false));
-            isMode1 = gamePad.getCurrentMode();
+            gamePad.changeMode(sp.getInt("currentMode", 0));
+            currentMode = gamePad.getCurrentMode();
         } catch (RemoteException e) {
             e.printStackTrace();
         }
@@ -87,12 +87,13 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this)
                 .setTitle(R.string.deactive_service)
                 .setMessage(R.string.deactive_service_text)
-                .setPositiveButton(getString(R.string.change_mode) + (isMode1 ? "1" : "2"), (dialogInterface, i) -> {
+                .setPositiveButton(getString(R.string.change_mode) + (currentMode == 2 ? 1 : currentMode + 2), (dialogInterface, i) -> {
                     try {
-                        boolean mode = !gamePad.getCurrentMode();
+                        int mode = gamePad.getCurrentMode();
+                        mode = (mode == 2 ? 0 : mode + 1);
                         gamePad.changeMode(mode);
-                        sp.edit().putBoolean("isMode1", mode).apply();
-                        Toast.makeText(this, getString(R.string.change_mode) + (!mode ? "1" : "2"), Toast.LENGTH_SHORT).show();
+                        sp.edit().putInt("currentMode", mode).apply();
+                        Toast.makeText(this, getString(R.string.change_mode) + (mode + 1), Toast.LENGTH_SHORT).show();
                     } catch (RemoteException e) {
                         e.printStackTrace();
                     }
@@ -160,7 +161,7 @@ public class MainActivity extends Activity {
         B.setOnClickListener(view -> new AlertDialog.Builder(MainActivity.this)
                 .setTitle(R.string.active_title)
                 .setMessage(R.string.active_text)
-                .setPositiveButton("root", (dialogInterface, i) -> {
+                .setPositiveButton("root", (dialogInterface, i) -> new Thread(() -> {
                     try {
                         Process process = Runtime.getRuntime().exec("su");
                         OutputStream outputStream = process.getOutputStream();
@@ -170,7 +171,7 @@ public class MainActivity extends Activity {
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-                })
+                }).start())
                 .setNeutralButton(R.string.copy_cmd, (dialogInterface, i) -> {
                     ((ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("c", "adb shell " + cmd));
                     Toast.makeText(MainActivity.this, getString(R.string.cmd_copied) + cmd, Toast.LENGTH_SHORT).show();
@@ -443,10 +444,11 @@ public class MainActivity extends Activity {
                 }
             }
         });
+
+
         if (!sp.getBoolean("floatWindow", true)) {
             linearLayout1.removeView(linearLayout);
         }
-
         Switch s7 = findViewById(R.id.s7);
         s7.setChecked(sp.getBoolean("volumeMap", false));
         s7.setOnCheckedChangeListener((compoundButton, isChecked) -> sp.edit().putBoolean("volumeMap", isChecked).apply());
@@ -474,20 +476,7 @@ public class MainActivity extends Activity {
             fileOutputStream.close();
         } catch (IOException ignored) {
         }
-//        String file2 = getExternalFilesDir(null).getPath() + "/GyroNative.dex";
-//
-//        try {
-//            InputStream is = getAssets().open("GyroNative.dex");
-//            FileOutputStream fileOutputStream = new FileOutputStream(file2);
-//            byte[] buffer = new byte[1024];
-//            int byteRead;
-//            while (-1 != (byteRead = is.read(buffer))) {
-//                fileOutputStream.write(buffer, 0, byteRead);
-//            }
-//            is.close();
-//            fileOutputStream.close();
-//        } catch (IOException ignored) {
-//        }
+
 
         String file2 = getExternalFilesDir(null).getPath() + "/GyroNative.dex";
         try {
@@ -516,6 +505,8 @@ public class MainActivity extends Activity {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+
         String file3 = getExternalFilesDir(null).getPath() + "/libtuoluoyi.so";
         try {
             FileInputStream in = new FileInputStream(getApplicationInfo().nativeLibraryDir + "/libtuoluoyi.so");
@@ -570,20 +561,19 @@ public class MainActivity extends Activity {
         }
 
         if (isShizukuRunning & isShizukuGranted) {
-            try {
-                Process p = Shizuku.newProcess(new String[]{"sh"}, null, null);
-                OutputStream o = p.getOutputStream();
-                o.write(("sh " + getExternalFilesDir(null).getPath() + "/starter.sh\nexit\n").getBytes());
-                o.flush();
-                o.close();
-                p.waitFor();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    p.destroyForcibly();
-                } else {
+            new Thread(() -> {
+                try {
+                    Process p = Shizuku.newProcess(new String[]{"sh"}, null, null);
+                    OutputStream out = p.getOutputStream();
+                    out.write(("sh " + getExternalFilesDir(null).getPath() + "/starter.sh\nexit\n").getBytes());
+                    out.flush();
+                    out.close();
+                    p.waitFor();
                     p.destroy();
+                } catch (Exception ioException) {
+                    Toast.makeText(MainActivity.this, "激活失败", Toast.LENGTH_SHORT).show();
                 }
-            } catch (IOException | InterruptedException ignored) {
-            }
+            }).start();
         }
     }
 
@@ -610,7 +600,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
-        if (hasFocus){
+        if (hasFocus) {
             Switch s1 = findViewById(R.id.s1);
             String set = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
             s1.setChecked(set != null && set.contains(getPackageName()));

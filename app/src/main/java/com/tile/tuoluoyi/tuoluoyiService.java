@@ -37,9 +37,9 @@ import android.widget.Toast;
 public class tuoluoyiService extends AccessibilityService {
     public IGamePad iGamePad;
     public IBinder binder;
-    public boolean isUInputCreated = false, isBroadcastRegistered = false, isGyroEnabled = false, invertX = false, invertY = false, isFloatWindowExist = false, canFloatWindowMove = true, isSharedPreferenceRegistered = false, isThumbLPressed = false, isMode1 = false, isGyroEnabledMode1 = false;
+    public boolean isBroadcastRegistered = false, isGamePadCreated = false, isGyroEnabled = false, invertX = false, invertY = false, isFloatWindowExist = false, canFloatWindowMove = true, isSharedPreferenceRegistered = false, isThumbLPressed = false;
     public SharedPreferences sp;
-    public float sensityX, sensityY, sensityXMode1, sensityYMode1;
+    public int sensityX, sensityY;
     public WindowManager windowManager;
     public WindowManager.LayoutParams params;
     public int floatWindowSize;
@@ -65,50 +65,40 @@ public class tuoluoyiService extends AccessibilityService {
                 case "intent.tuoluoyi.sendBinder":
                     BinderContainer binderContainer = intent.getParcelableExtra("binder");
                     IBinder binder = binderContainer.getBinder();
+
                     //如果binder已经失去活性了，则不再继续解析
                     if (!binder.pingBinder()) return;
                     tuoluoyiService.this.binder = binder;
                     //将binder转换为接口
                     iGamePad = IGamePad.Stub.asInterface(binder);
                     try {
-                        isMode1 = iGamePad.getCurrentMode();
+                        iGamePad.changeMode(sp.getInt("currentMode", 0));
+                        iGamePad.syncPrefs(invertX, invertY, sensityX, sensityY);
+                        isGamePadCreated = iGamePad.create();
                     } catch (RemoteException e) {
                         e.printStackTrace();
                     }
-                    if (!isMode1) {
-                        try {
-                            isUInputCreated = iGamePad.createUInput();
-                        } catch (RemoteException e) {
-                            e.printStackTrace();
-                        }
-                        if (isUInputCreated) {
-                            Toast.makeText(context, R.string.connect_success, Toast.LENGTH_SHORT).show();
-                            //注册传感器监听器
-                            mSensorMgr = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-                            boolean hasGyroSope = mSensorMgr.registerListener(gyroListener, mSensorMgr.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
-                                    SensorManager.SENSOR_DELAY_FASTEST);
-                            if (!hasGyroSope) {
-                                Toast.makeText(context, R.string.gyro_notfound, Toast.LENGTH_SHORT).show();
-                                disableSelf();
-                                return;
-                            }
-                            isGyroEnabled = true;
-                        } else
-                            Toast.makeText(context, R.string.connect_failed, Toast.LENGTH_SHORT).show();
-                    } else {
+
+                    if (isGamePadCreated) {
                         Toast.makeText(context, R.string.connect_success, Toast.LENGTH_SHORT).show();
                         //注册传感器监听器
                         mSensorMgr = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-                        boolean hasGyroSope = mSensorMgr.registerListener(gyroListenerMode1, mSensorMgr.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
+                        boolean hasGyroSope = mSensorMgr.registerListener(gyroListener, mSensorMgr.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
                                 SensorManager.SENSOR_DELAY_FASTEST);
                         if (!hasGyroSope) {
                             Toast.makeText(context, R.string.gyro_notfound, Toast.LENGTH_SHORT).show();
                             disableSelf();
                             return;
                         }
-                        isGyroEnabledMode1 = true;
-                    }
+                        isGyroEnabled = true;
 
+                        //如果用户开启了”悬浮球“，则展示一个悬浮球。
+                        if (sp.getBoolean("floatWindow", true)) {
+                            showFloatWindow();
+                        }
+
+                    } else
+                        Toast.makeText(context, R.string.connect_failed, Toast.LENGTH_SHORT).show();
             }
 
         }
@@ -128,58 +118,41 @@ public class tuoluoyiService extends AccessibilityService {
             canFloatWindowMove = sharedPreferences.getBoolean("canmove", true);
             invertX = sharedPreferences.getBoolean("invertX", false);
             invertY = sharedPreferences.getBoolean("invertY", false);
-            sensityX = ((invertX ? -1 : 1) << 16) * sharedPreferences.getInt("sensityX", 100) / 100f;
-            sensityY = ((invertY ? -1 : 1) << 16) * sharedPreferences.getInt("sensityY", 100) / 100f;
-            sensityXMode1 = (invertX ? -1 : 1) * sharedPreferences.getInt("sensityX", 100) / 100f;
-            sensityYMode1 = (invertY ? -1 : 1) * sharedPreferences.getInt("sensityY", 100) / 100f;
+            sensityX = sharedPreferences.getInt("sensityX", 100);
+            sensityY = sharedPreferences.getInt("sensityY", 100);
+
+            try {
+                iGamePad.syncPrefs(invertX, invertY, sensityX, sensityY);
+            } catch (RemoteException ignored) {
+            }
         }
     };
 
     //gyroListener用于将陀螺仪数据转换为虚拟手柄的操控
     public final SensorEventListener gyroListener = new SensorEventListener() {
-        float lastX = 0, lastY = 0;
+
 
         @Override
         public void onSensorChanged(SensorEvent event) {
 
-            //原始陀螺仪数据乘以灵敏度，再加上上次陀螺仪数据四舍五入的差值
-            float nowX = sensityX * event.values[1] + lastX;
-            float nowY = sensityY * -event.values[0] + lastY;
-
-            //四舍五入之后的整数部分数值
-            int roundX = Math.round(nowX);
-            int roundY = Math.round(nowY);
-
-            //lastX和lastY用来记录四舍五入的小数部分差值，下次获取的传感器数据会先加上此差值再参与计算
-            lastX = nowX - roundX;
-            lastY = nowY - roundY;
-
-            //传入整数部分给虚拟手柄
-            inputEvent(roundX, roundY);
-        }
-
-        public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        }
-    };
-
-    public final SensorEventListener gyroListenerMode1 = new SensorEventListener() {
-
-        @Override
-        public void onSensorChanged(SensorEvent event) {
             try {
-                iGamePad.inputEventMode1(sensityXMode1 * event.values[1], sensityYMode1 * -event.values[0]);
-            } catch (RemoteException e) {
-                mSensorMgr.unregisterListener(this);
-                isGyroEnabledMode1 = false;
-                if (!binder.pingBinder()) {
-                    Toast.makeText(tuoluoyiService.this, "Binder Died!", Toast.LENGTH_SHORT).show();
+                iGamePad.inputEvent(event.values[1], -event.values[0]);
+            } catch (Exception ignored) {
+                if (isGyroEnabled) {
+                    mSensorMgr.unregisterListener(this);
+                    isGyroEnabled = false;
                 }
+                if (!binder.pingBinder())
+                    Toast.makeText(tuoluoyiService.this, "Binder Died!", Toast.LENGTH_SHORT).show();
+
             }
+
         }
 
         public void onAccuracyChanged(Sensor sensor, int accuracy) {
         }
     };
+
 
     @Override
     protected void onServiceConnected() {
@@ -190,10 +163,10 @@ public class tuoluoyiService extends AccessibilityService {
         sp = getSharedPreferences("data", 0);
         invertX = sp.getBoolean("invertX", false);
         invertY = sp.getBoolean("invertY", false);
-        sensityX = ((invertX ? -1 : 1) << 16) * sp.getInt("sensityX", 100) / 100f;
-        sensityY = ((invertY ? -1 : 1) << 16) * sp.getInt("sensityY", 100) / 100f;
-        sensityXMode1 = sp.getInt("sensityX", 100) / 100f;
-        sensityYMode1 = sp.getInt("sensityY", 100) / 100f;
+        sensityX = sp.getInt("sensityX", 100);
+        sensityY = sp.getInt("sensityY", 100);
+
+
         //注册广播接收器，用来接收陀螺仪进程发来的广播
         registerReceiver(mBroadcastReceiver, new IntentFilter("intent.tuoluoyi.exit"));
         registerReceiver(mBroadcastReceiver, new IntentFilter("intent.tuoluoyi.sendBinder"));
@@ -204,11 +177,6 @@ public class tuoluoyiService extends AccessibilityService {
         //如果用户开启了”使用前台通知“，则发送前台通知
         if (sp.getBoolean("foreground", true)) {
             sendNotification();
-        }
-
-        //如果用户开启了”悬浮球“，则展示一个悬浮球。
-        if (sp.getBoolean("floatWindow", true)) {
-            showFloatWindow();
         }
 
         //注册偏好变动监视器，用来实时更新用户的灵敏度设置等等
@@ -223,6 +191,8 @@ public class tuoluoyiService extends AccessibilityService {
         params.alpha = sp.getInt("tran", 90) * 0.01f;
         params.x = sp.getInt("x", 0);
         params.y = sp.getInt("y", 0);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
         canFloatWindowMove = sp.getBoolean("canmove", true);
         view = new ImageView(this);
         int rotation = windowManager.getDefaultDisplay().getRotation();
@@ -262,34 +232,26 @@ public class tuoluoyiService extends AccessibilityService {
                         break;
                     case MotionEvent.ACTION_UP:
 
-                        //如果是单击，则绑定/解绑服务
+                        //如果是单击，则暂停/恢复陀螺仪服务
                         if (!moved) {
                             if (System.currentTimeMillis() - downTime < 200) {
-                                if (!isMode1)
-                                    if (isGyroEnabled) {
-                                        mSensorMgr.unregisterListener(gyroListener);
-                                        isGyroEnabled = false;
-                                        Toast.makeText(tuoluoyiService.this, R.string.pause, Toast.LENGTH_SHORT).show();
-                                        inputEvent(0, 0);
-                                    } else {
-                                        mSensorMgr.registerListener(gyroListener, mSensorMgr.getDefaultSensor(Sensor.TYPE_GYROSCOPE), SensorManager.SENSOR_DELAY_FASTEST);
-                                        isGyroEnabled = true;
-                                        Toast.makeText(tuoluoyiService.this, R.string.resume, Toast.LENGTH_SHORT).show();
-                                    }
-                                else if (isGyroEnabledMode1) {
-                                    mSensorMgr.unregisterListener(gyroListenerMode1);
-                                    isGyroEnabledMode1 = false;
+
+                                if (isGyroEnabled) {
+                                    mSensorMgr.unregisterListener(gyroListener);
+                                    isGyroEnabled = false;
                                     Toast.makeText(tuoluoyiService.this, R.string.pause, Toast.LENGTH_SHORT).show();
                                     try {
-                                        iGamePad.inputEventMode1(0, 0);
-                                    } catch (RemoteException e) {
-                                        e.printStackTrace();
+                                        iGamePad.inputEvent(0, 0);
+                                    } catch (RemoteException ignored) {
                                     }
+
                                 } else {
-                                    mSensorMgr.registerListener(gyroListenerMode1, mSensorMgr.getDefaultSensor(Sensor.TYPE_GYROSCOPE), SensorManager.SENSOR_DELAY_FASTEST);
-                                    isGyroEnabledMode1 = true;
+                                    mSensorMgr.registerListener(gyroListener, mSensorMgr.getDefaultSensor(Sensor.TYPE_GYROSCOPE), SensorManager.SENSOR_DELAY_FASTEST);
+                                    isGyroEnabled = true;
                                     Toast.makeText(tuoluoyiService.this, R.string.resume, Toast.LENGTH_SHORT).show();
                                 }
+
+
                             } else {
                                 isThumbLPressed = !isThumbLPressed;
                                 try {
@@ -300,15 +262,16 @@ public class tuoluoyiService extends AccessibilityService {
                                 view.setBackgroundColor(isThumbLPressed ? Color.DKGRAY : Color.TRANSPARENT);
                             }
                         }
-                        //自动贴边
-                        params.x = Math.min(Math.max(params.x, -(SCREEN_WIDTH - floatWindowSize) / 2), (SCREEN_WIDTH - floatWindowSize) / 2);
-                        params.y = Math.min(Math.max(params.y, -(SCREEN_HEIGHT - floatWindowSize) / 2), (SCREEN_HEIGHT - floatWindowSize) / 2);
-
-                        windowManager.updateViewLayout(view, params);
-
-                        //存储悬浮球位置
-                        sp.edit().putInt("x", params.x).putInt("y", params.y).apply();
                 }
+                //自动贴边
+                params.x = Math.min(Math.max(params.x, -(SCREEN_WIDTH - floatWindowSize) / 2), (SCREEN_WIDTH - floatWindowSize) / 2);
+                params.y = Math.min(Math.max(params.y, -(SCREEN_HEIGHT - floatWindowSize) / 2), (SCREEN_HEIGHT - floatWindowSize) / 2);
+
+                windowManager.updateViewLayout(view, params);
+
+                //存储悬浮球位置
+                sp.edit().putInt("x", params.x).putInt("y", params.y).apply();
+
                 return false;
             }
         });
@@ -349,31 +312,13 @@ public class tuoluoyiService extends AccessibilityService {
         SCREEN_HEIGHT = metrics.heightPixels;
     }
 
-    private void inputEvent(int xValue, int yValue) {
-        try {
-            iGamePad.inputEvent(xValue, yValue);
-        } catch (Exception ignored) {
-            if (isGyroEnabled) mSensorMgr.unregisterListener(gyroListener);
-            isGyroEnabled = false;
-            if (!binder.pingBinder()) {
-                Toast.makeText(tuoluoyiService.this, "Binder Died!", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
-
     @Override
     public void onDestroy() {
         super.onDestroy();
         if (isGyroEnabled) mSensorMgr.unregisterListener(gyroListener);
-        if (isGyroEnabledMode1) mSensorMgr.unregisterListener(gyroListenerMode1);
         try {
-            if (isUInputCreated) {
-                iGamePad.inputEvent(0, 0);
-                iGamePad.closeUInput();
-            }
-            if (isMode1) {
-                iGamePad.inputEventMode1(0, 0);
-            }
+            iGamePad.inputEvent(0, 0);
+            iGamePad.close();
         } catch (Exception ignored) {
         }
         if (isFloatWindowExist) windowManager.removeView(view);

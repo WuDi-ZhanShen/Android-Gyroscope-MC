@@ -1,6 +1,7 @@
 pm grant com.tile.tuoluoyi android.permission.WRITE_SECURE_SETTINGS
 
 file_name="GyroNative.dex"
+#file_name="Gyro.apk"
 file_name1="libtuoluoyi.so"
 origin_path="$(dirname "$0")/$file_name"
 origin_path1="$(dirname "$0")/$file_name1"

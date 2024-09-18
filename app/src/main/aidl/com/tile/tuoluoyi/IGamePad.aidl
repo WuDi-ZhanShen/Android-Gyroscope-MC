@@ -2,13 +2,11 @@ package com.tile.tuoluoyi;
 
 interface IGamePad {
 
-    void changeMode(boolean isMode1);
+    void changeMode(int mode);
 
-    boolean getCurrentMode();
+    int getCurrentMode();
 
-    void inputEvent(int xValue,int yValue);
-
-    void inputEventMode1(float xValue,float yValue);
+    void inputEvent(float xValue,float yValue);
 
     void pressTL(boolean pressed);
 
@@ -16,11 +14,11 @@ interface IGamePad {
 
     void pressThumbL(boolean pressed);
 
-    void pressHat0Y(boolean pressed);
+    boolean create();
 
-    boolean createUInput();
-
-    boolean closeUInput();
+    boolean close();
 
     void closeAndExit();
+
+    void syncPrefs(boolean invX,boolean invY,int sensityX,int sensityY);
 }

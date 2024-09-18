@@ -17,15 +17,16 @@
 #include <linux/uhid.h>
 #include <linux/input.h>
 #include <jni.h>
+#include <android/log.h>
 
 static struct uinput_user_dev uinput_dev;
 static int uinput_fd;
-static struct input_event inputEventX, inputEventY, inputEventSYN, inputEventTL, inputEventTR, inputEventThumbL, inputEventHat0Y;
+static struct input_event inputEventX, inputEventY, inputEventSYN, inputEventTL, inputEventTR, inputEventThumbL;
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_tile_tuoluoyi_GamePadNative_nativeInputEvent(JNIEnv *env, jclass clazz, jint x_value,
-                                                      jint y_value) {
+Java_com_tile_tuoluoyi_GamePadNative_nativeUInputEvent(JNIEnv *env, jclass clazz, jint x_value,
+                                                       jint y_value) {
 
     inputEventX.value = x_value;
     write(uinput_fd, &inputEventX, sizeof(struct input_event));
@@ -58,7 +59,7 @@ Java_com_tile_tuoluoyi_GamePadNative_nativeCreateUInput(JNIEnv *env, jclass claz
     uinput_dev.id.vendor = 0x1;
     uinput_dev.id.product = 0x1;
     //UInput机制中,轴事件的最小值是-32768，最大值是32767。但是我为了正负对称，就没有把最小值设为-32768。
-    //设定好了最小值和最大值的作用是，后续我们发送轴事件时安卓系统会自动将轴事件归一化至-1到1之间。比如后续发一个-666，安卓系统就将这个数据归一化为-666/32767
+    //设定好了最小值和最大值的作用是，后续我们发送轴事件时安卓系统会自动将轴事件归一化至-1到1之间。比如后续发一个-666，安卓系统就将这个数据归一化为-666/65534
     uinput_dev.absmin[ABS_X] = -1;
     uinput_dev.absmax[ABS_X] = 1;
     uinput_dev.absmin[ABS_Y] = -1;
@@ -135,111 +136,67 @@ Java_com_tile_tuoluoyi_GamePadNative_nativeCreateUInput(JNIEnv *env, jclass claz
     memset(&inputEventThumbL, 0, sizeof(struct input_event));
     inputEventThumbL.type = EV_KEY;
     inputEventThumbL.code = BTN_THUMBL;
-    memset(&inputEventHat0Y, 0, sizeof(struct input_event));
-    inputEventHat0Y.type = EV_ABS;
-    inputEventHat0Y.code = ABS_HAT0Y;
 
     return true;
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_tile_tuoluoyi_GamePadNative_nativePressTL(JNIEnv *env, jclass clazz, jboolean pressed) {
+Java_com_tile_tuoluoyi_GamePadNative_nativeUInputPressTL(JNIEnv *env, jclass clazz,
+                                                         jboolean pressed) {
     inputEventTL.value = pressed ? 1 : 0;
     write(uinput_fd, &inputEventTL, sizeof(struct input_event));
-
     write(uinput_fd, &inputEventSYN, sizeof(struct input_event));
 }
+
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_tile_tuoluoyi_GamePadNative_nativePressTR(JNIEnv *env, jclass clazz, jboolean pressed) {
+Java_com_tile_tuoluoyi_GamePadNative_nativeUInputPressTR(JNIEnv *env, jclass clazz,
+                                                         jboolean pressed) {
     inputEventTR.value = pressed ? 1 : 0;
     write(uinput_fd, &inputEventTR, sizeof(struct input_event));
-
     write(uinput_fd, &inputEventSYN, sizeof(struct input_event));
 }
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_tile_tuoluoyi_GamePadNative_nativePressThumbL(JNIEnv *env, jclass clazz,
-                                                       jboolean pressed) {
+Java_com_tile_tuoluoyi_GamePadNative_nativeUInputPressThumbL(JNIEnv *env, jclass clazz,
+                                                             jboolean pressed) {
     inputEventThumbL.value = pressed ? 1 : 0;
     write(uinput_fd, &inputEventThumbL, sizeof(struct input_event));
-
-    write(uinput_fd, &inputEventSYN, sizeof(struct input_event));
-}
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_tile_tuoluoyi_GamePadNative_nativePressHat0Y(JNIEnv *env, jclass clazz, jboolean pressed) {
-    inputEventHat0Y.value = pressed ? -1 : 0;
-    write(uinput_fd, &inputEventHat0Y, sizeof(struct input_event));
-
     write(uinput_fd, &inputEventSYN, sizeof(struct input_event));
 }
 
 
-static unsigned char rdesc[] = {
-        0x05, 0x01,    /* USAGE_PAGE (Generic Desktop) */
-        0x09, 0x02,    /* USAGE (Mouse) */
-        0xa1, 0x01,    /* COLLECTION (Application) */
-        0x09, 0x01,        /* USAGE (Pointer) */
-        0xa1, 0x00,        /* COLLECTION (Physical) */
-        0x85, 0x01,            /* REPORT_ID (1) */
-        0x05, 0x09,            /* USAGE_PAGE (Button) */
-        0x19, 0x01,            /* USAGE_MINIMUM (Button 1) */
-        0x29, 0x03,            /* USAGE_MAXIMUM (Button 3) */
-        0x15, 0x00,            /* LOGICAL_MINIMUM (0) */
-        0x25, 0x01,            /* LOGICAL_MAXIMUM (1) */
-        0x95, 0x03,            /* REPORT_COUNT (3) */
-        0x75, 0x01,            /* REPORT_SIZE (1) */
-        0x81, 0x02,            /* INPUT (Data,Var,Abs) */
-        0x95, 0x01,            /* REPORT_COUNT (1) */
-        0x75, 0x05,            /* REPORT_SIZE (5) */
-        0x81, 0x01,            /* INPUT (Cnst,Var,Abs) */
-        0x05, 0x01,            /* USAGE_PAGE (Generic Desktop) */
-        0x09, 0x30,            /* USAGE (X) */
-        0x09, 0x31,            /* USAGE (Y) */
-        0x09, 0x38,            /* USAGE (WHEEL) */
-        0x15, 0x81,            /* LOGICAL_MINIMUM (-127) */
-        0x25, 0x7f,            /* LOGICAL_MAXIMUM (127) */
-        0x75, 0x08,            /* REPORT_SIZE (8) */
-        0x95, 0x03,            /* REPORT_COUNT (3) */
-        0x81, 0x06,            /* INPUT (Data,Var,Rel) */
-        0xc0,            /* END_COLLECTION */
-        0xc0,        /* END_COLLECTION */
-        0x05, 0x01,    /* USAGE_PAGE (Generic Desktop) */
-        0x09, 0x06,    /* USAGE (Keyboard) */
-        0xa1, 0x01,    /* COLLECTION (Application) */
-        0x85, 0x02,        /* REPORT_ID (2) */
-        0x05, 0x08,        /* USAGE_PAGE (Led) */
-        0x19, 0x01,        /* USAGE_MINIMUM (1) */
-        0x29, 0x03,        /* USAGE_MAXIMUM (3) */
-        0x15, 0x00,        /* LOGICAL_MINIMUM (0) */
-        0x25, 0x01,        /* LOGICAL_MAXIMUM (1) */
-        0x95, 0x03,        /* REPORT_COUNT (3) */
-        0x75, 0x01,        /* REPORT_SIZE (1) */
-        0x91, 0x02,        /* Output (Data,Var,Abs) */
-        0x95, 0x01,        /* REPORT_COUNT (1) */
-        0x75, 0x05,        /* REPORT_SIZE (5) */
-        0x91, 0x01,        /* Output (Cnst,Var,Abs) */
-        0xc0,        /* END_COLLECTION */
+//0x16, 0x01, 0x80, //   Logical Minimum (-32767)
+//0x26, 0xFF, 0x7F, //   Logical Maximum (32767)
+static unsigned char descrpition[] = {
+        0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
+        0x09, 0x05,        // Usage (Game Pad)
+        0xA1, 0x01,        // Collection (Application)
+        0x05, 0x09,        //   Usage Page (Button)
+        0x19, 0x01,        //   Usage Minimum (0x01)
+        0x29, 0x10,        //   Usage Maximum (0x10)
+        0x15, 0x00,        //   Logical Minimum (0)
+        0x25, 0x01,        //   Logical Maximum (1)
+        0x75, 0x01,        //   Report Size (1)
+        0x95, 0x10,        //   Report Count (16)
+        0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+        0x05, 0x01,        //   Usage Page (Generic Desktop Ctrls)
+        0x15, 0x80,        //   Logical Minimum (-128)
+        0x25, 0x7F,        //   Logical Maximum (127)
+        0x36, 0x00, 0x80,  //   Physical Minimum (-32768)
+        0x46, 0xFF, 0x7F,  //   Physical Maximum (32767)
+        0x09, 0x32,        //   Usage (Z)
+        0x09, 0x35,        //   Usage (Rz)
+        0x75, 0x10,        //   Report Size (16)
+        0x95, 0x02,        //   Report Count (2)
+        0x81, 0x42,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,Null State)
+        0xC0,              // End Collection
+
+// 45 bytes
+
+
 };
-
-static int uhid_write(int fd, const struct uhid_event *ev) {
-    ssize_t ret;
-
-    ret = write(fd, ev, sizeof(*ev));
-    if (ret < 0) {
-        fprintf(stderr, "Cannot write to uhid: %m\n");
-        return -errno;
-    } else if (ret != sizeof(*ev)) {
-        fprintf(stderr, "Wrong size written to uhid: %zd != %zu\n",
-                ret, sizeof(ev));
-        return -EFAULT;
-    } else {
-        return 0;
-    }
-}
-
 
 static int uhid_fd;
 static struct uhid_event uhidEventXY;
@@ -248,29 +205,26 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_tile_tuoluoyi_GamePadNative_nativeCreateUHid(JNIEnv *env, jclass clazz) {
 
-    if ((uhid_fd = open("/dev/uinput", O_RDWR | O_NDELAY)) < 0) {
+    if ((uhid_fd = open("/dev/uhid", O_RDWR | O_NDELAY)) < 0) {
         return false;//error process.
     }
-    struct uhid_event ev;
-    memset(&ev, 0, sizeof(uhid_event));
+    struct uhid_event ev = {0};
     ev.type = UHID_CREATE;
     strcpy((char *) ev.u.create.name, "Xbox Wireless Controller");
-    ev.u.create.rd_data = rdesc;
-    ev.u.create.rd_size = sizeof(rdesc);
-    ev.u.create.bus = BUS_USB;
-    ev.u.create.vendor = 0x15d9;
-    ev.u.create.product = 0x0a37;
-    ev.u.create.version = 0;
+    ev.u.create.rd_data = descrpition;
+    ev.u.create.rd_size = sizeof(descrpition);
+    ev.u.create.bus = BUS_VIRTUAL;
+    ev.u.create.vendor = 0x1;
+    ev.u.create.product = 0x1;
+    ev.u.create.version = 0x1;
     ev.u.create.country = 0;
-    ssize_t ret = write(uhid_fd, &ev, sizeof(ev));
-    if (ret != sizeof(ev)) {
+    if (write(uhid_fd, &ev, sizeof(ev)) != sizeof(uhid_event)) {
         return false;
     }
 
     memset(&uhidEventXY, 0, sizeof(uhid_event));
     uhidEventXY.type = UHID_INPUT;
-    uhidEventXY.u.input.size = 5;
-    uhidEventXY.u.input.data[0] = 0x1;
+    uhidEventXY.u.input.size = 6;
 
     return true;
 }
@@ -279,8 +233,7 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_tile_tuoluoyi_GamePadNative_nativeCloseUHid(JNIEnv *env, jclass clazz) {
 
-    struct uhid_event ev;
-    memset(&ev, 0, sizeof(ev));
+    struct uhid_event ev = {0};
     ev.type = UHID_DESTROY;
     return write(uhid_fd, &ev, sizeof(uhid_event)) > 0;
 }
@@ -288,12 +241,43 @@ Java_com_tile_tuoluoyi_GamePadNative_nativeCloseUHid(JNIEnv *env, jclass clazz) 
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_tile_tuoluoyi_GamePadNative_nativeUHidInputEvent(JNIEnv *env, jclass clazz, jint x_value,
-                                                          jint y_value) {
+Java_com_tile_tuoluoyi_GamePadNative_nativeUHidEvent(JNIEnv *env, jclass clazz, jint x_value,
+                                                     jint y_value) {
 
-    uhidEventXY.u.input.data[2] = x_value;
-    uhidEventXY.u.input.data[3] = y_value;
+
+    if (y_value>32767) y_value = 32767;
+    else if (y_value<-32767) y_value = -32767;
+    if (x_value>32767) x_value = 32767;
+    else if (x_value<-32767) x_value = -32767;
+    uhidEventXY.u.input.data[2] = y_value & 0xFF;
+    uhidEventXY.u.input.data[3] = (y_value >> 8) & 0xFF;
+    uhidEventXY.u.input.data[4] = x_value & 0xFF;
+    uhidEventXY.u.input.data[5] = (x_value >> 8) & 0xFF;
     write(uhid_fd, &uhidEventXY, sizeof(uhid_event));
 
 }
 
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_tile_tuoluoyi_GamePadNative_nativeUHidPressTL(JNIEnv *env, jclass clazz,
+                                                       jboolean pressed) {
+    pressed ? (uhidEventXY.u.input.data[0] |= 1 << 6) : (uhidEventXY.u.input.data[0] &= ~(1 << 6));
+    write(uhid_fd, &uhidEventXY, sizeof(uhid_event));
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_tile_tuoluoyi_GamePadNative_nativeUHidPressTR(JNIEnv *env, jclass clazz,
+                                                       jboolean pressed) {
+    pressed ? (uhidEventXY.u.input.data[0] |= 1 << 7) : (uhidEventXY.u.input.data[0] &= ~(1 << 7));
+    write(uhid_fd, &uhidEventXY, sizeof(uhid_event));
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_tile_tuoluoyi_GamePadNative_nativeUHidPressThumbL(JNIEnv *env, jclass clazz,
+                                                           jboolean pressed) {
+    pressed ? (uhidEventXY.u.input.data[1] |= 1 << 5) : (uhidEventXY.u.input.data[1] &= ~(1 << 5));
+    write(uhid_fd, &uhidEventXY, sizeof(uhid_event));
+//    __android_log_print(ANDROID_LOG_INFO, "MyTag", "This is a log message from JNI%d",
+//                        uhidEventXY.u.input.data[2]);
+}
